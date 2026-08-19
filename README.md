@@ -560,3 +560,15 @@ service.run();
 
 > 镜像仓库：`registry.cn-hangzhou.aliyuncs.com/all-image/dbswitch`
 
+
+## 镜像版本
+
+| Tag | 说明 | 镜像地址 |
+|-----|------|---------|
+| `2.0.1` | 原作者官方镜像，未做任何修改 | `registry.cn-hangzhou.aliyuncs.com/all-image/dbswitch:2.0.1` |
+| `adl-2.0.2-fix` | 修复达梦/MySQL表名大小写不一致导致的 Table already exists 报错 | `registry.cn-hangzhou.aliyuncs.com/all-image/dbswitch:adl-2.0.2-fix` |
+| `adl-2.0.3` | 修复大小写Bug + 前端编辑任务数据不回填 + 增加1-4分钟定时选项 | `registry.cn-hangzhou.aliyuncs.com/all-image/dbswitch:adl-2.0.3` |
+| `adl-2.0.4` | 在adl-2.0.3基础上升级DM JDBC驱动（8.1.0.147→8.1.3.62），修复CLOB越界问题 | `registry.cn-hangzhou.aliyuncs.com/all-image/dbswitch:adl-2.0.4` |
+
+> 镜像仓库：`registry.cn-hangzhou.aliyuncs.com/all-image/dbswitch`
+
