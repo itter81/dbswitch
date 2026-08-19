@@ -1,3 +1,17 @@
+> **本仓库 Fork 自 [inrgihc/dbswitch](https://gitee.com/inrgihc/dbswitch)，原作者 inrgihc。**
+> **本人在原版基础上修复了达梦数据库相关 Bug，改动详见下方。**
+
+## 本仓库改动说明
+
+| 改动 | 说明 |
+|------|------|
+| 修复全量同步报 Table already exists | 达梦/MySQL 表名大小写不一致导致，DefaultReaderRobot.java、ReaderTaskThread.java 统一转小写比较 |
+| 修复编辑任务页面数据不回填 | 异步请求未等待，edit.vue 改为 Promise 链式调用 |
+| 增加 1-4 分钟定时选项 | edit.vue 增加选项，CronExprUtils.java 最小间隔从 120 秒改为 60 秒 |
+| 升级达梦 JDBC 驱动 | 8.1.0.147（2019）→ 8.1.3.62（2023），修复 CLOB 越界问题 |
+
+---
+
 # 异构数据库数据与结构同步工具
 
 ![](https://gitee.com/inrgihc/dbswitch/badge/star.svg)
