@@ -22,7 +22,7 @@ import org.quartz.CronExpression;
  */
 public final class CronExprUtils {
 
-  public static final int MIN_INTERVAL_SECONDS = 120;
+  public static final int MIN_INTERVAL_SECONDS = 60;
 
   /**
    * 检查CRON表达式的有效性

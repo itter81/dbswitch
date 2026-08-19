@@ -780,6 +780,10 @@ export default {
         }
       ],
       cronExprOptionList: [
+        { name: "每1分钟执行1次", value: "0 0/1 * * * ? *" },
+        { name: "每2分钟执行1次", value: "0 0/2 * * * ? *" },
+        { name: "每3分钟执行1次", value: "0 0/3 * * * ? *" },
+        { name: "每4分钟执行1次", value: "0 0/4 * * * ? *" },
         { name: "每5分钟执行1次", value: "0 0/5 * * * ? *" },
         { name: "每30分钟执行1次", value: "0 0/30 * * * ? *" },
         { name: "每1小时执行1次", value: "0 0 0/1 * * ? *" },
@@ -987,8 +991,9 @@ export default {
               targetAfterSqlScripts: detail.configuration.targetAfterSqlScripts,
               customDdlMap: detail.configuration.customDdlMap || {},
             };
-            this.selectChangedSourceConnection(this.dataform.sourceConnectionId);
-            this.selectCreateChangedSourceSchema(this.dataform.sourceSchema);
+            this.selectChangedSourceConnection(this.dataform.sourceConnectionId).then(() => {
+              this.selectCreateChangedSourceSchema(this.dataform.sourceSchema);
+            });
             this.selectChangedTargetConnection(this.dataform.targetConnectionId);
             // 编辑模式解锁所有步骤
             this.maxVisitedStep = 5;
@@ -1002,7 +1007,7 @@ export default {
       this.sourceConnection = this.connectionNameList.find(item => item.id === value);
       if (this.sourceConnection) this.dataform.sourceTypeName = this.sourceConnection.typeName;
       this.sourceConnectionSchemas = [];
-      this.$http.get("/dbswitch/admin/api/v1/connection/schemas/get/" + value).then(res => {
+      return this.$http.get("/dbswitch/admin/api/v1/connection/schemas/get/" + value).then(res => {
         if (0 === res.data.code) {
           this.sourceConnectionSchemas = res.data.data;
         } else {

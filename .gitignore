@@ -37,3 +37,23 @@ logs/
 .opencode/
 .claude/
 .trae/
+# 各子模块编译产物
+dbswitch-product/*/target/
+dbswitch-admin/target/
+dbswitch-data/target/
+dbswitch-common/target/
+dbswitch-core/target/
+dbswitch-flyway/target/
+dbswitch-dist/target/
+
+# 前端编译产物
+dbswitch-admin-ui/dist/
+dbswitch-admin-ui/node_modules/
+
+# Docker构建中间产物
+build-docker/dbswitch/dbswitch-release/
+build-docker/dbswitch/dbswitch-release.tar.gz
+
+# 前端编译后复制到后端的产物（运行时需要但不提交，由CI或手动构建生成）
+dbswitch-admin/src/main/resources/static/
+dbswitch-admin/src/main/resources/index.html

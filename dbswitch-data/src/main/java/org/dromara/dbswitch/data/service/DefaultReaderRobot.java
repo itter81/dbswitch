@@ -79,7 +79,7 @@ public class DefaultReaderRobot extends RobotReader<ReaderTaskResult> {
     this.readTaskThreads = new ArrayList<>();
     MetadataService tdsService = new DefaultMetadataService(targetDataSource, configuration.getTarget().getType());
     Set<String> targetExistTables = tdsService.queryTableList(configuration.getTarget().getTargetSchema())
-        .stream().map(TableDescription::getTableName).collect(Collectors.toSet());
+        .stream().map(t -> t.getTableName().toLowerCase()).collect(Collectors.toSet());
     List<TableDescription> tableDescriptions = splitReaderTask();
     this.countDownLatch = new CountDownLatch(tableDescriptions.size());
     tableDescriptions.forEach(t -> addReaderTask(t, targetExistTables));

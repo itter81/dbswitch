@@ -307,7 +307,7 @@ public class ReaderTaskThread extends TaskProcessor<ReaderTaskResult> {
 
       checkInterrupt();
 
-      if (!targetExistTables.contains(targetTableName)) {
+      if (!targetExistTables.contains(targetTableName.toLowerCase())) {
         // 当目标端不存在该表时，则生成建表语句并创建(优先使用用户自定义DDL)
         List<String> sqlCreateTable = getCustomOrAutoDdl(targetMetaProvider);
 
