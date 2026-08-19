@@ -17,14 +17,104 @@
 ```bash
 # 推荐使用最新版
 docker pull registry.cn-hangzhou.aliyuncs.com/all-image/dbswitch:adl-2.0.4
-
 # 历史版本
 docker pull registry.cn-hangzhou.aliyuncs.com/all-image/dbswitch:adl-2.0.3
 docker pull registry.cn-hangzhou.aliyuncs.com/all-image/dbswitch:adl-2.0.2-fix
 docker pull registry.cn-hangzhou.aliyuncs.com/all-image/dbswitch:2.0.1
 ```
 
+## 部署方式
+
+```yaml
+services:
+  dbswitch:
+    image: registry.cn-hangzhou.aliyuncs.com/all-image/dbswitch:adl-2.0.4
+    container_name: dbswitch
+    restart: always
+    environment:
+      - DBTYPE=h2
+    volumes:
+      - /data/dbswitch/tmp:/tmp
+    ports:
+      - "9088:9088"
+```
+
+```bash
+cd /opt/dbswitch
+docker-compose down
+docker-compose up -d
+docker logs -f dbswitch
+```
+
+## 完整打包流程
+
+> 每次改完代码都需要执行以下步骤重新打包镜像
+
+### 注意事项（按改动范围选择起始步骤）
+
+| 改动范围 | 从哪步开始 |
+|---------|-----------|
+| 只改后端代码 | 跳过第1、2步，从**第3步**开始 |
+| 只改前端代码 | 从**第1步**开始 |
+| 只换DM JDBC驱动 | 替换驱动文件后从**第3步**开始 |
+| 前后端都改 | 从**第1步**开始 |
+
+### 第1步：编译前端
+
+```bash
+cd /data/git-hub/dbswitch/dbswitch-admin-ui
+npm install
+npm run build
+```
+
+### 第2步：复制前端产物到后端资源目录
+
+```bash
+cp /data/git-hub/dbswitch/dbswitch-admin-ui/dist/index.html \
+   /data/git-hub/dbswitch/dbswitch-admin/src/main/resources/
+cp -r /data/git-hub/dbswitch/dbswitch-admin-ui/dist/static/* \
+   /data/git-hub/dbswitch/dbswitch-admin/src/main/resources/static/
+```
+
+### 第3步：编译后端
+
+```bash
+cd /data/git-hub/dbswitch
+sh ./docker-maven-build.sh
+# 产物：/data/git-hub/dbswitch/target/dbswitch-release-2.0.2.tar.gz
+```
+
+### 第4步：准备Docker构建目录
+
+```bash
+# 清理旧的tmp产物
+rm -rf /tmp/dbswitch-release-2.0.2
+
+# 解压新产物
+tar zxvf /data/git-hub/dbswitch/target/dbswitch-release-2.0.2.tar.gz -C /tmp
+
+# 复制到docker构建目录
+cp /tmp/dbswitch-release-2.0.2/lib/* /data/git-hub/dbswitch/build-docker/dbswitch/dbswitch-release/lib/
+cp /tmp/dbswitch-release-2.0.2/ext/* /data/git-hub/dbswitch/build-docker/dbswitch/dbswitch-release/ext/
+cp -r /tmp/dbswitch-release-2.0.2/drivers/* /data/git-hub/dbswitch/build-docker/dbswitch/dbswitch-release/drivers/
+```
+
+### 第5步：打镜像并推送
+
+```bash
+cd /data/git-hub/dbswitch/build-docker/dbswitch
+tar zcvf dbswitch-release.tar.gz dbswitch-release/
+docker build -t registry.cn-hangzhou.aliyuncs.com/all-image/dbswitch:adl-2.0.x .
+docker push registry.cn-hangzhou.aliyuncs.com/all-image/dbswitch:adl-2.0.x
+```
+
+> ⚠️ 推送前记得把 `adl-2.0.x` 替换为实际版本号
+
+> 编译环境：Ubuntu 22.04，Node.js v18.20.8，Maven通过Docker容器提供（无需本机安装）
+
 <details>
+<summary>原项目说明（点击展开）</summary>
+
 <summary>原项目说明（点击展开）</summary>
 
 > **本仓库 Fork 自 [inrgihc/dbswitch](https://gitee.com/inrgihc/dbswitch)，原作者 inrgihc。**
