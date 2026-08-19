@@ -1,3 +1,32 @@
+# DBSwitch（Fork 自 inrgihc/dbswitch）
+
+> 原项目：https://gitee.com/inrgihc/dbswitch  
+> 原作者：inrgihc  
+> 本仓库在原版基础上修复了达梦数据库相关 Bug，适配生产环境使用。
+
+## 改动说明
+
+| Tag | 改动内容 |
+|-----|---------|
+| `adl-2.0.2-fix` | 修复达梦/MySQL表名大小写不一致导致的 Table already exists 报错 |
+| `adl-2.0.3` | 修复大小写Bug + 前端编辑任务数据不回填 + 增加1-4分钟定时选项 |
+| `adl-2.0.4` | 升级DM JDBC驱动（8.1.0.147→8.1.3.62），修复CLOB越界问题 |
+
+## 镜像拉取
+
+```bash
+# 推荐使用最新版
+docker pull registry.cn-hangzhou.aliyuncs.com/all-image/dbswitch:adl-2.0.4
+
+# 历史版本
+docker pull registry.cn-hangzhou.aliyuncs.com/all-image/dbswitch:adl-2.0.3
+docker pull registry.cn-hangzhou.aliyuncs.com/all-image/dbswitch:adl-2.0.2-fix
+docker pull registry.cn-hangzhou.aliyuncs.com/all-image/dbswitch:2.0.1
+```
+
+<details>
+<summary>原项目说明（点击展开）</summary>
+
 > **本仓库 Fork 自 [inrgihc/dbswitch](https://gitee.com/inrgihc/dbswitch)，原作者 inrgihc。**
 > **本人在原版基础上修复了达梦数据库相关 Bug，改动详见下方。**
 
@@ -584,3 +613,5 @@ service.run();
 
 > 推荐使用最新版 `adl-2.0.4`
 
+
+</details>
