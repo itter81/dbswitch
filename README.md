@@ -112,6 +112,244 @@ docker push registry.cn-hangzhou.aliyuncs.com/all-image/dbswitch:adl-2.0.x
 
 > 编译环境：Ubuntu 22.04，Node.js v18.20.8，Maven通过Docker容器提供（无需本机安装）
 
+---
+
+## Zabbix 监控接入
+
+本仓库在部署后接入了 Zabbix 监控，采用 **LLD 自动发现**方式，按任务名动态发现同步任务，监控每个任务的连续失败次数，取代原始的累计失败数触发方式。
+
+### 监控脚本
+
+路径：`/scripts/zabbix/dbswitch_monitor.sh`
+
+```bash
+cat > /scripts/zabbix/dbswitch_monitor.sh << 'EOF'
+#!/bin/bash
+HOST="http://localhost:9088"
+API_BASE="$HOST/dbswitch/admin/api/v1"
+USERNAME="admin"
+PASSWORD='your_password_here'
+TOKEN_FILE="/tmp/.dbswitch_token"
+
+get_token() {
+  TOKEN=$(curl -s -X POST "$API_BASE/authentication/login" \
+    --data-urlencode "username=$USERNAME" \
+    --data-urlencode "password=$PASSWORD" \
+    -G | grep -o '"accessToken":"[^"]*"' | cut -d'"' -f4)
+  echo "$TOKEN" > "$TOKEN_FILE"
+  echo "$TOKEN"
+}
+
+get_valid_token() {
+  if [ -f "$TOKEN_FILE" ]; then
+    TOKEN=$(cat "$TOKEN_FILE")
+    CODE=$(curl -s -H "Authorization: Bearer $TOKEN" \
+      "$API_BASE/overview/statistics" | grep -o '"code":[0-9]*' | cut -d: -f2)
+    if [ "$CODE" = "0" ]; then
+      echo "$TOKEN"
+      return
+    fi
+  fi
+  get_token
+}
+
+# LLD发现：返回所有已发布任务的JSON列表
+lld_tasks() {
+  local TOKEN=$1
+  local TASK_DATA=$(curl -s -X POST \
+    -H "Authorization: Bearer $TOKEN" \
+    -H "Content-Type: application/json" \
+    -d '{}' \
+    "$API_BASE/assignment/list")
+
+  local RESULT='{"data":['
+  local FIRST=1
+  local IDS=$(echo "$TASK_DATA" | grep -o '"id":[0-9]*' | cut -d: -f2)
+
+  for ID in $IDS; do
+    local NAME=$(echo "$TASK_DATA" | python3 -c "
+import sys,json
+data=json.load(sys.stdin)
+items=[d for d in data['data'] if d['id']==$ID]
+print(items[0]['name'] if items else '')
+" 2>/dev/null)
+    local PUBLISHED=$(echo "$TASK_DATA" | python3 -c "
+import sys,json
+data=json.load(sys.stdin)
+items=[d for d in data['data'] if d['id']==$ID]
+print(items[0]['isPublished'] if items else 'false')
+" 2>/dev/null)
+
+    if [ "$PUBLISHED" = "True" ] && [ -n "$NAME" ]; then
+      if [ "$FIRST" = "1" ]; then
+        FIRST=0
+      else
+        RESULT="$RESULT,"
+      fi
+      RESULT="$RESULT{\"{#TASKNAME}\":\"$NAME\",\"{#TASKID}\":\"$ID\"}"
+    fi
+  done
+  RESULT="$RESULT]}"
+  echo "$RESULT"
+}
+
+# 按任务名查连续失败次数
+get_consec_fail_by_name() {
+  local TASK_NAME=$1
+  local TOKEN=$2
+
+  local TASK_DATA=$(curl -s -X POST \
+    -H "Authorization: Bearer $TOKEN" \
+    -H "Content-Type: application/json" \
+    -d '{}' \
+    "$API_BASE/assignment/list")
+
+  local TASK_ID=$(echo "$TASK_DATA" | python3 -c "
+import sys,json
+data=json.load(sys.stdin)
+items=[d for d in data['data'] if d['name']=='$TASK_NAME']
+print(items[0]['id'] if items else '')
+" 2>/dev/null)
+
+  if [ -z "$TASK_ID" ]; then
+    echo 0
+    return
+  fi
+
+  local STATUSES=$(curl -s -H "Authorization: Bearer $TOKEN" \
+    "$API_BASE/ops/jobs/list/1/10?id=$TASK_ID" \
+    | grep -o '"status":[0-9]*' | cut -d: -f2)
+
+  local COUNT=0
+  for STATUS in $STATUSES; do
+    if [ "$STATUS" = "2" ]; then
+      COUNT=$((COUNT + 1))
+    else
+      break
+    fi
+  done
+  echo $COUNT
+}
+
+METRIC=$1
+TOKEN=$(get_valid_token)
+
+case "$METRIC" in
+  connection_total)
+    DATA=$(curl -s -H "Authorization: Bearer $TOKEN" "$API_BASE/overview/statistics")
+    echo "$DATA" | grep -o '"totalCount":[0-9]*' | head -1 | cut -d: -f2 ;;
+  task_total)
+    DATA=$(curl -s -H "Authorization: Bearer $TOKEN" "$API_BASE/overview/statistics")
+    echo "$DATA" | grep -o '"totalCount":[0-9]*' | sed -n '2p' | cut -d: -f2 ;;
+  task_published)
+    DATA=$(curl -s -H "Authorization: Bearer $TOKEN" "$API_BASE/overview/statistics")
+    echo "$DATA" | grep -o '"publishedCount":[0-9]*' | cut -d: -f2 ;;
+  job_total)
+    DATA=$(curl -s -H "Authorization: Bearer $TOKEN" "$API_BASE/overview/statistics")
+    echo "$DATA" | grep -o '"totalCount":[0-9]*' | sed -n '3p' | cut -d: -f2 ;;
+  job_running)
+    DATA=$(curl -s -H "Authorization: Bearer $TOKEN" "$API_BASE/overview/statistics")
+    echo "$DATA" | grep -o '"runningCount":[0-9]*' | cut -d: -f2 ;;
+  job_success)
+    DATA=$(curl -s -H "Authorization: Bearer $TOKEN" "$API_BASE/overview/statistics")
+    echo "$DATA" | grep -o '"successfulCount":[0-9]*' | cut -d: -f2 ;;
+  job_failed)
+    DATA=$(curl -s -H "Authorization: Bearer $TOKEN" "$API_BASE/overview/statistics")
+    echo "$DATA" | grep -o '"failedCount":[0-9]*' | cut -d: -f2 ;;
+  job_cancel)
+    DATA=$(curl -s -H "Authorization: Bearer $TOKEN" "$API_BASE/overview/statistics")
+    echo "$DATA" | grep -o '"cancelCount":[0-9]*' | cut -d: -f2 ;;
+  lld_tasks)
+    lld_tasks "$TOKEN" ;;
+  task_consec_fail)
+    get_consec_fail_by_name "$2" "$TOKEN" ;;
+  *)
+    echo "ZBX_NOTSUPPORTED" ;;
+esac
+EOF
+chmod +x /scripts/zabbix/dbswitch_monitor.sh
+```
+
+> ⚠️ 密码含特殊字符时必须用 `--data-urlencode` 方式传参，直接拼 URL 会导致 `#` 截断密码。
+
+### Zabbix Agent2 配置
+
+追加到 `/etc/zabbix/zabbix_agent2.d/dbswitch_monitor.conf`：
+
+```ini
+UserParameter=dbswitch.connection_total,/scripts/zabbix/dbswitch_monitor.sh connection_total
+UserParameter=dbswitch.task_total,/scripts/zabbix/dbswitch_monitor.sh task_total
+UserParameter=dbswitch.task_published,/scripts/zabbix/dbswitch_monitor.sh task_published
+UserParameter=dbswitch.job_total,/scripts/zabbix/dbswitch_monitor.sh job_total
+UserParameter=dbswitch.job_running,/scripts/zabbix/dbswitch_monitor.sh job_running
+UserParameter=dbswitch.job_success,/scripts/zabbix/dbswitch_monitor.sh job_success
+UserParameter=dbswitch.job_failed,/scripts/zabbix/dbswitch_monitor.sh job_failed
+UserParameter=dbswitch.job_cancel,/scripts/zabbix/dbswitch_monitor.sh job_cancel
+UserParameter=dbswitch.lld_tasks,/scripts/zabbix/dbswitch_monitor.sh lld_tasks
+UserParameter=dbswitch.task_consec_fail[*],/scripts/zabbix/dbswitch_monitor.sh task_consec_fail "$1"
+```
+
+重启 Agent：
+
+```bash
+systemctl restart zabbix-agent2
+```
+
+### Zabbix 模板配置（AS-templet-DBSwitch-Monitor）
+
+**基础监控项（8个）：**
+
+| 监控项名称 | Key | 类型 | 间隔 |
+|-----------|-----|------|------|
+| DBSwitch 连接数 | `dbswitch.connection_total` | 数字(无符号) | 1m |
+| DBSwitch 任务总数 | `dbswitch.task_total` | 数字(无符号) | 1m |
+| DBSwitch 已发布任务数 | `dbswitch.task_published` | 数字(无符号) | 1m |
+| DBSwitch Job总数 | `dbswitch.job_total` | 数字(无符号) | 1m |
+| DBSwitch 运行中Job | `dbswitch.job_running` | 数字(无符号) | 1m |
+| DBSwitch 成功Job数 | `dbswitch.job_success` | 数字(无符号) | 1m |
+| DBSwitch 失败Job数 | `dbswitch.job_failed` | 数字(无符号) | 1m |
+| DBSwitch 取消Job数 | `dbswitch.job_cancel` | 数字(无符号) | 1m |
+
+**LLD 自动发现规则：**
+
+| 项目 | 值 |
+|------|-----|
+| 名称 | DBSwitch任务自动发现 |
+| Key | `dbswitch.lld_tasks` |
+| 更新间隔 | 5m |
+| 保留丢失资源期限 | 30d |
+
+**LLD 监控项原型：**
+
+| 名称 | Key | 类型 | 间隔 |
+|------|-----|------|------|
+| `{#TASKNAME} 连续失败次数` | `dbswitch.task_consec_fail[{#TASKNAME}]` | 数字(无符号) | 4m |
+
+**LLD 触发器原型：**
+
+| 名称 | 表达式 | 严重性 |
+|------|--------|--------|
+| `{#TASKNAME} 连续失败≥2次` | `last(…/dbswitch.task_consec_fail[{#TASKNAME}])>=2` | Warning |
+| `{#TASKNAME} 连续失败≥3次` | `last(…/dbswitch.task_consec_fail[{#TASKNAME}])>=3` | High |
+
+### 验证
+
+```bash
+# 验证LLD发现格式
+/scripts/zabbix/dbswitch_monitor.sh lld_tasks
+
+# 验证按任务名采集连续失败次数（替换为实际任务名）
+/scripts/zabbix/dbswitch_monitor.sh task_consec_fail your-task-name
+```
+
+### 注意事项
+
+- 任务名变更需在 Zabbix 手动清理旧的发现实例，或等 30 天保留期自动过期
+- `task_consec_fail` 采集间隔建议与任务调度周期一致
+- LLD 发现间隔 5 分钟，新建任务最多 5 分钟后自动出现在监控列表
+
+---
+
 <details>
 <summary>原项目说明（点击展开）</summary>
 
@@ -666,30 +904,6 @@ service.run();
 
 ![structure](docs/images/weixin.PNG)
 
-
-
-## 镜像版本
-
-| Tag | 说明 | 镜像地址 |
-|-----|------|---------|
-| `2.0.1` | 原作者官方镜像，未做任何修改 | `registry.cn-hangzhou.aliyuncs.com/all-image/dbswitch:2.0.1` |
-| `2.0.2-fix` | 修复达梦/MySQL表名大小写不一致导致的 Table already exists 报错 | `registry.cn-hangzhou.aliyuncs.com/all-image/dbswitch:2.0.2-fix` |
-| `adl-2.0.3` | 修复大小写Bug + 前端编辑任务数据不回填 + 增加1-4分钟定时选项 | `registry.cn-hangzhou.aliyuncs.com/all-image/dbswitch:adl-2.0.3` |
-| `adl-2.0.4` | 在adl-2.0.3基础上升级DM JDBC驱动（8.1.0.147→8.1.3.62），修复CLOB越界问题 | `registry.cn-hangzhou.aliyuncs.com/all-image/dbswitch:adl-2.0.4` |
-
-> 镜像仓库：`registry.cn-hangzhou.aliyuncs.com/all-image/dbswitch`
-
-
-## 镜像版本
-
-| Tag | 说明 | 镜像地址 |
-|-----|------|---------|
-| `2.0.1` | 原作者官方镜像，未做任何修改 | `registry.cn-hangzhou.aliyuncs.com/all-image/dbswitch:2.0.1` |
-| `adl-2.0.2-fix` | 修复达梦/MySQL表名大小写不一致导致的 Table already exists 报错 | `registry.cn-hangzhou.aliyuncs.com/all-image/dbswitch:adl-2.0.2-fix` |
-| `adl-2.0.3` | 修复大小写Bug + 前端编辑任务数据不回填 + 增加1-4分钟定时选项 | `registry.cn-hangzhou.aliyuncs.com/all-image/dbswitch:adl-2.0.3` |
-| `adl-2.0.4` | 在adl-2.0.3基础上升级DM JDBC驱动（8.1.0.147→8.1.3.62），修复CLOB越界问题 | `registry.cn-hangzhou.aliyuncs.com/all-image/dbswitch:adl-2.0.4` |
-
-> 镜像仓库：`registry.cn-hangzhou.aliyuncs.com/all-image/dbswitch`
 
 
 ## 镜像版本
