@@ -332,6 +332,12 @@ systemctl restart zabbix-agent2
 | `{#TASKNAME} 连续失败≥2次` | `last(…/dbswitch.task_consec_fail[{#TASKNAME}])>=2` | Warning |
 | `{#TASKNAME} 连续失败≥3次` | `last(…/dbswitch.task_consec_fail[{#TASKNAME}])>=3` | High |
 
+### 生产环境效果
+
+![Zabbix监控看板](docs/images/zabbix-dashboard.png)
+
+左上：Job 执行总数、失败数、运行中、取消数趋势；右上：任务总数、已发布任务数、连接数概览；下方两图为 LLD 自动发现后按任务名生成的连续失败次数折线图，触发器阈值 ≥2 次报 Warning、≥3 次报 High。
+
 ### 验证
 
 ```bash
