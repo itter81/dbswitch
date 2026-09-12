@@ -1,2 +1,0 @@
-webpackJsonp([20],{"2+MG":function(e,t,n){"use strict";Object.defineProperty(t,"__esModule",{value:!0});var a={components:{commonDataSource:n("kdZn").a},data:function(){return{}}},r={render:function(){var e=this.$createElement;return(this._self._c||e)("commonDataSource",{attrs:{isReadOnly:!1}})},staticRenderFns:[]};var c=n("VU/8")(a,r,!1,function(e){n("k5rd")},"data-v-0c58faff",null);t.default=c.exports},k5rd:function(e,t){}});
-//# sourceMappingURL=20.a476a38191cde522905a.js.map
