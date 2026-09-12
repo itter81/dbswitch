@@ -761,6 +761,18 @@ export default {
       stepTitles: ['基本信息配置', '同步源端配置', '目标端配置', '映射转换配置', '配置确认提交'],
       syncModeOptions: [
         {
+          value: 4,
+          label: '智能容错（1+2模式）',
+          desc: '日常使用模式2增量同步，连续失败2次后自动切换模式1重建表结构，成功后自动恢复模式2，解决源端新增字段导致同步失败问题',
+          icon: 'el-icon-magic-stick'
+        },
+        {
+          value: 3,
+          label: '每次完全覆盖',
+          desc: '每次执行时先删除目标表再重建，然后全量同步所有数据，相当于MySQL恢复数据库效果，可解决两端表结构不一致问题',
+          icon: 'el-icon-delete'
+        },
+        {
           value: 2,
           label: '目标端建表并同步数据',
           desc: '首次自动建表（存在同名表时删除重建），并执行全量同步；再次执行时根据主键进行变化量同步',
@@ -952,6 +964,10 @@ export default {
               varAutoSyncMode = 1;
             } else if (!detail.configuration.targetDropTable && !detail.configuration.targetOnlyCreate) {
               varAutoSyncMode = 0;
+            } else if (detail.configuration.smartRecovery) {
+              varAutoSyncMode = 4;
+            } else if (detail.configuration.targetAlwaysDrop) {
+              varAutoSyncMode = 3;
             } else {
               varAutoSyncMode = 2;
             }
@@ -981,6 +997,8 @@ export default {
               targetConnectionName: detail.configuration.targetConnectionName,
               targetDropTable: detail.configuration.targetDropTable,
               targetOnlyCreate: detail.configuration.targetOnlyCreate,
+              targetAlwaysDrop: detail.configuration.targetAlwaysDrop || false,
+              smartRecovery: detail.configuration.smartRecovery || false,
               targetAutoIncrement: detail.configuration.targetAutoIncrement,
               autoSyncMode: varAutoSyncMode,
               targetSchema: detail.configuration.targetSchema,
@@ -1312,12 +1330,26 @@ export default {
       if (0 === this.dataform.autoSyncMode) {
         this.dataform.targetDropTable = false;
         this.dataform.targetOnlyCreate = false;
+        this.dataform.targetAlwaysDrop = false;
       } else if (1 === this.dataform.autoSyncMode) {
         this.dataform.targetDropTable = true;
         this.dataform.targetOnlyCreate = true;
+        this.dataform.targetAlwaysDrop = false;
+      } else if (3 === this.dataform.autoSyncMode) {
+        this.dataform.targetDropTable = true;
+        this.dataform.targetOnlyCreate = false;
+        this.dataform.targetAlwaysDrop = true;
+        this.dataform.smartRecovery = false;
+      } else if (4 === this.dataform.autoSyncMode) {
+        this.dataform.targetDropTable = true;
+        this.dataform.targetOnlyCreate = false;
+        this.dataform.targetAlwaysDrop = false;
+        this.dataform.smartRecovery = true;
       } else {
         this.dataform.targetDropTable = true;
         this.dataform.targetOnlyCreate = false;
+        this.dataform.targetAlwaysDrop = false;
+        this.dataform.smartRecovery = false;
       }
       this.$refs['dataform'].validate(valid => {
         if (valid) {
@@ -1338,6 +1370,8 @@ export default {
             columnNameCase: this.dataform.columnNameCase,
             targetDropTable: this.dataform.targetDropTable,
             targetOnlyCreate: this.dataform.targetOnlyCreate,
+            targetAlwaysDrop: this.dataform.targetAlwaysDrop,
+            smartRecovery: this.dataform.smartRecovery,
             targetAutoIncrement: this.dataform.targetAutoIncrement,
             batchSize: this.dataform.batchSize,
             channelSize: this.dataform.channelSize,

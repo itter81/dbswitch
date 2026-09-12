@@ -92,6 +92,14 @@ public class AssignmentConfigEntity {
 
   @TableField("target_drop_table")
   private Boolean targetDropTable;
+  @TableField("target_always_drop")
+  private Boolean targetAlwaysDrop;
+  @TableField("smart_recovery")
+  private Boolean smartRecovery;
+  @TableField("recovery_state")
+  private Integer recoveryState;
+  @TableField("consec_fail_count")
+  private Integer consecFailCount;
 
   @TableField("target_only_create")
   private Boolean targetOnlyCreate;

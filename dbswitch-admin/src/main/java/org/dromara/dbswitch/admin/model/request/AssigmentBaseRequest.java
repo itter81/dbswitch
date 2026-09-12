@@ -45,6 +45,8 @@ public class AssigmentBaseRequest {
     private List<PatternMapper> columnNameMapper;
     private Boolean targetDropTable;
     private Boolean targetOnlyCreate;
+    private Boolean targetAlwaysDrop;
+    private Boolean smartRecovery;
     private Boolean targetAutoIncrement;
     private SyncOptionEnum targetSyncOption;
     private String targetBeforeSqlScripts;
@@ -73,6 +75,8 @@ public class AssigmentBaseRequest {
     assignmentConfigEntity.setColumnNameMap(config.getColumnNameMapper());
     assignmentConfigEntity.setTargetDropTable(config.getTargetDropTable());
     assignmentConfigEntity.setTargetOnlyCreate(config.getTargetOnlyCreate());
+    assignmentConfigEntity.setTargetAlwaysDrop(config.getTargetAlwaysDrop());
+    assignmentConfigEntity.setSmartRecovery(config.getSmartRecovery());
     assignmentConfigEntity.setTargetAutoIncrement(config.getTargetAutoIncrement());
     assignmentConfigEntity.setBeforeSqlScripts(getTrimValueOrNull(config.getTargetBeforeSqlScripts()));
     assignmentConfigEntity.setAfterSqlScripts(getTrimValueOrNull(config.getTargetAfterSqlScripts()));

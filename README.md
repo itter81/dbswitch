@@ -11,13 +11,17 @@
 | `adl-2.0.2-fix` | 修复达梦/MySQL表名大小写不一致导致的 Table already exists 报错 |
 | `adl-2.0.3` | 修复大小写Bug + 前端编辑任务数据不回填 + 增加1-4分钟定时选项 |
 | `adl-2.0.4` | 升级DM JDBC驱动（8.1.0.147→8.1.3.62），修复CLOB越界问题 |
+| `adl-2.0.5` | 新增"每次完全覆盖"同步模式（每次执行先DROP目标表再重建，全量同步，解决源库表结构变更后目标库字段不一致问题） |
+| `adl-2.0.6` | 新增"智能容错（1+2模式）"同步模式（增量同步连续失败2次后自动切换为重建表结构，成功后恢复增量同步，解决源端新增字段导致同步失败问题） |
 
 ## 镜像拉取
 
 ```bash
 # 推荐使用最新版
-docker pull registry.cn-hangzhou.aliyuncs.com/all-image/dbswitch:adl-2.0.4
+docker pull registry.cn-hangzhou.aliyuncs.com/all-image/dbswitch:adl-2.0.6
 # 历史版本
+docker pull registry.cn-hangzhou.aliyuncs.com/all-image/dbswitch:adl-2.0.5
+docker pull registry.cn-hangzhou.aliyuncs.com/all-image/dbswitch:adl-2.0.4
 docker pull registry.cn-hangzhou.aliyuncs.com/all-image/dbswitch:adl-2.0.3
 docker pull registry.cn-hangzhou.aliyuncs.com/all-image/dbswitch:adl-2.0.2-fix
 docker pull registry.cn-hangzhou.aliyuncs.com/all-image/dbswitch:2.0.1
@@ -28,7 +32,7 @@ docker pull registry.cn-hangzhou.aliyuncs.com/all-image/dbswitch:2.0.1
 ```yaml
 services:
   dbswitch:
-    image: registry.cn-hangzhou.aliyuncs.com/all-image/dbswitch:adl-2.0.4
+    image: registry.cn-hangzhou.aliyuncs.com/all-image/dbswitch:adl-2.0.6
     container_name: dbswitch
     restart: always
     environment:
@@ -920,8 +924,10 @@ service.run();
 | `adl-2.0.2-fix` | 修复达梦/MySQL表名大小写不一致导致的 Table already exists 报错 | `docker pull registry.cn-hangzhou.aliyuncs.com/all-image/dbswitch:adl-2.0.2-fix` |
 | `adl-2.0.3` | 修复大小写Bug + 前端编辑任务数据不回填 + 增加1-4分钟定时选项 | `docker pull registry.cn-hangzhou.aliyuncs.com/all-image/dbswitch:adl-2.0.3` |
 | `adl-2.0.4` | 在adl-2.0.3基础上升级DM JDBC驱动（8.1.0.147→8.1.3.62），修复CLOB越界问题 | `docker pull registry.cn-hangzhou.aliyuncs.com/all-image/dbswitch:adl-2.0.4` |
+| `adl-2.0.5` | 在adl-2.0.4基础上新增"每次完全覆盖"同步模式，每次执行先DROP目标表再重建，全量同步所有数据 | `docker pull registry.cn-hangzhou.aliyuncs.com/all-image/dbswitch:adl-2.0.5` |
+| `adl-2.0.6` | 在adl-2.0.5基础上新增"智能容错（1+2模式）"同步模式，增量同步连续失败2次后自动切换为重建表结构，成功后恢复增量同步 | `docker pull registry.cn-hangzhou.aliyuncs.com/all-image/dbswitch:adl-2.0.6` |
 
-> 推荐使用最新版 `adl-2.0.4`
+> 推荐使用最新版 `adl-2.0.6`
 
 
 </details>

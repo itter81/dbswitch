@@ -137,6 +137,31 @@ public class ExecuteJobTaskRunnable implements Runnable {
               properties.getTarget().setTargetDrop(true);
               properties.getTarget().setOnlyCreate(true);
               properties.getTarget().setChangeDataSync(false);
+            } else if (Boolean.TRUE.equals(assignmentConfigEntity.getTargetAlwaysDrop())) {
+              // 每次完全覆盖：每次都DROP重建+全量同步，不做增量变化同步
+              properties.getTarget().setTargetDrop(true);
+              properties.getTarget().setOnlyCreate(false);
+              properties.getTarget().setChangeDataSync(false);
+            } else if (Boolean.TRUE.equals(assignmentConfigEntity.getSmartRecovery())) {
+              // 智能容错1+2模式
+              Integer recoveryState = assignmentConfigEntity.getRecoveryState();
+              if (recoveryState != null && recoveryState == 1) {
+                // 待恢复态：强制用模式1（只建物理表）
+                properties.getTarget().setTargetDrop(true);
+                properties.getTarget().setOnlyCreate(true);
+                properties.getTarget().setChangeDataSync(false);
+              } else {
+                // 正常态：用模式2（建表+增量同步）
+                if (assignmentConfigEntity.getFirstFlag()) {
+                  properties.getTarget().setTargetDrop(true);
+                  properties.getTarget().setOnlyCreate(false);
+                  properties.getTarget().setChangeDataSync(false);
+                } else {
+                  properties.getTarget().setTargetDrop(false);
+                  properties.getTarget().setOnlyCreate(false);
+                  properties.getTarget().setChangeDataSync(true);
+                }
+              }
             } else {
               if (assignmentConfigEntity.getFirstFlag()) {
                 // 首次同步，需要自动建表，然后全量加载数据同步
@@ -169,6 +194,15 @@ public class ExecuteJobTaskRunnable implements Runnable {
             assignmentConfigDAO.updateSelective(config);
           }
 
+          // 智能容错：执行成功，清零失败计数，切回正常态
+          if (Boolean.TRUE.equals(assignmentConfigEntity.getSmartRecovery())) {
+            AssignmentConfigEntity config = new AssignmentConfigEntity();
+            config.setId(assignmentConfigEntity.getId());
+            config.setRecoveryState(0);
+            config.setConsecFailCount(0);
+            assignmentConfigDAO.updateSelective(config);
+          }
+
           assignmentJobEntity.setStatus(JobStatusEnum.PASS.getValue());
           log.info("Execute Assignment Success [taskId={},jobId={}],Task Name: {}",
               task.getId(), assignmentJobEntity.getId(), task.getName());
@@ -177,6 +211,31 @@ public class ExecuteJobTaskRunnable implements Runnable {
           assignmentJobEntity.setErrorLog(ExceptionUtil.stacktraceToString(e));
           log.info("Execute Assignment Failed [taskId={},jobId={}],Task Name: {}, Message: {}",
               task.getId(), assignmentJobEntity.getId(), task.getName(), e.getMessage());
+
+          // 智能容错：执行失败处理
+          if (Boolean.TRUE.equals(assignmentConfigEntity.getSmartRecovery())) {
+            AssignmentConfigEntity config = new AssignmentConfigEntity();
+            config.setId(assignmentConfigEntity.getId());
+            Integer currentState = assignmentConfigEntity.getRecoveryState();
+            if (currentState != null && currentState == 1) {
+              // 待恢复态执行失败（模式1失败），切回正常态，计数清零，下次继续尝试
+              config.setRecoveryState(0);
+              config.setConsecFailCount(0);
+            } else {
+              // 正常态执行失败，计数+1
+              int failCount = assignmentConfigEntity.getConsecFailCount() == null
+                  ? 0 : assignmentConfigEntity.getConsecFailCount();
+              failCount++;
+              config.setConsecFailCount(failCount);
+              if (failCount >= 2) {
+                // 连续失败≥2次，切到待恢复态
+                config.setRecoveryState(1);
+                log.info("SmartRecovery: taskId={} consecFail={}, switch to recovery_pending",
+                    taskId, failCount);
+              }
+            }
+            assignmentConfigDAO.updateSelective(config);
+          }
         } finally {
           AssignmentJobEntity latestJobEntity = assignmentJobDAO.getById(assignmentJobEntity.getId());
           if (Objects.nonNull(latestJobEntity)) {

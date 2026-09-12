@@ -111,6 +111,12 @@ public class AssignmentDetailResponse {
 
     @ApiModelProperty("是否删除同名表")
     private Boolean targetDropTable;
+    @ApiModelProperty("是否每次完全覆盖")
+    private Boolean targetAlwaysDrop;
+    @ApiModelProperty("是否启用智能容错模式")
+    private Boolean smartRecovery;
+    @ApiModelProperty("智能容错当前状态(0正常1待恢复)")
+    private Integer recoveryState;
 
     @ApiModelProperty("是否建表允许自增字段")
     private Boolean targetAutoIncrement;
